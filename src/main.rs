@@ -4,16 +4,143 @@ use klystron::{
     runtime_2d::{event::WindowEvent, launch, App2D},
     DrawType, Engine, FramePacket, Matrix4, Object, Vertex, WinitBackend, UNLIT_FRAG, UNLIT_VERT,
 };
+use nalgebra::{Vector3, Vector4};
 
 pub type Mesh = (Vec<Vertex>, Vec<u16>);
+pub type Drawing = (Mesh, Matrix4<f32>);
 
 fn main() -> Result<()> {
-    let mesh = circuit_mesh(todo!(), todo!());
-    launch::<MyApp>(mesh)
+    let components = vec![chip((7, 2), true, false), chip((8, 3), false, true)];
+    let connections = vec![
+        ((0, 0), (1, 0)),
+        ((0, 1), (1, 1)),
+        ((0, 2), (1, 2)),
+        ((0, 3), (1, 3)),
+    ];
+    let board_size = (30, 30);
+    let circuit = (components, connections, board_size);
+    let layout = layout(&circuit).expect("Circuit layout problem");
+    let drawing = circuit_drawing(&circuit, &layout);
+    launch::<MyApp>(drawing)
 }
 
-fn circuit_mesh(circuit: &Circuit, layout: &Layout) -> Mesh {
-    todo!();
+fn chip(size: Size, vertical_terms: bool, horizontal_terms: bool) -> Component {
+    let (width, height) = size;
+    assert!(width > 0);
+    assert!(height > 0);
+    assert!(vertical_terms || horizontal_terms);
+
+    let mut terminals = Vec::new();
+
+    if vertical_terms {
+        for x in 0..width {
+            terminals.push((x, -1));
+            terminals.push((x, height + 1));
+        }
+    }
+
+    if horizontal_terms {
+        for y in 0..height {
+            terminals.push((-1, y));
+            terminals.push((width + 1, y));
+        }
+    }
+
+    (terminals, size)
+}
+
+fn circuit_drawing(
+    (components, _, (width, height)): &Circuit,
+    (placements, routes): &Layout,
+) -> Drawing {
+    let mut mesh = ShapeBuilder::new();
+
+    // Components
+    let component_color = [1., 0., 0.];
+    for ((_, (width, height)), (x, y)) in components.iter().zip(placements) {
+        rectangle(
+            &mut mesh,
+            *x as f32,
+            *y as f32,
+            *width as f32,
+            *height as f32,
+            component_color,
+        );
+    }
+
+    // Routes
+    let route_color = [0.6133, 0.9333, 1.1244];
+    for route in routes {
+        for pair in route.windows(2) {
+            line(
+                &mut mesh,
+                pair[0].0 as f32,
+                pair[0].1 as f32,
+                pair[1].0 as f32,
+                pair[1].1 as f32,
+                route_color,
+            );
+        }
+    }
+
+    // Border
+    rectangle(
+        &mut mesh,
+        0.,
+        0.,
+        *width as f32,
+        *height as f32,
+        [1., 1., 1.],
+    );
+
+    let scale = 1. / *width.max(height) as f32;
+    let scale = Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.))
+        * Matrix4::new_translation(&Vector3::new(-1., -1., 0.))
+        * Matrix4::from_diagonal(&Vector4::new(2., 2., 1., 1.))
+        * Matrix4::from_diagonal(&Vector4::new(scale, scale, 1., 1.));
+
+    let ShapeBuilder { vertices, indices } = mesh;
+    ((vertices, indices), scale)
+}
+
+fn line(mesh: &mut ShapeBuilder, x1: f32, y1: f32, x2: f32, y2: f32, color: [f32; 3]) {
+    let base = mesh.indices.len() as u16;
+    mesh.vertices
+        .extend_from_slice(&[vert2d(x1, y1, color), vert2d(x2, y2, color)]);
+    mesh.indices.extend_from_slice(&[base, base + 1]);
+}
+
+fn rectangle(mesh: &mut ShapeBuilder, x: f32, y: f32, width: f32, height: f32, color: [f32; 3]) {
+    let base = mesh.vertices.len() as u16;
+
+    mesh.vertices.extend_from_slice(&[
+        vert2d(x, y, color),
+        vert2d(x + width, y, color),
+        vert2d(x + width, y + height, color),
+        vert2d(x, y + height, color),
+    ]);
+
+    mesh.indices
+        .extend([0, 1, 1, 2, 2, 3, 3, 0].iter().map(|i| i + base));
+}
+
+fn vert2d(x: f32, y: f32, color: [f32; 3]) -> Vertex {
+    Vertex {
+        pos: [x, y, 0.],
+        color,
+    }
+}
+
+#[derive(Default)]
+pub struct ShapeBuilder {
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u16>,
+}
+
+impl ShapeBuilder {
+    pub fn new() -> Self {
+        Default::default()
+    }
 }
 
 struct MyApp {
@@ -22,16 +149,19 @@ struct MyApp {
 
 impl App2D for MyApp {
     const TITLE: &'static str = "2D example app";
-    type Args = Mesh;
+    type Args = Drawing;
 
-    fn new(engine: &mut WinitBackend, (vertices, indices): Self::Args) -> Result<Self> {
+    fn new(
+        engine: &mut WinitBackend,
+        ((vertices, indices), transform): Self::Args,
+    ) -> Result<Self> {
         let material = engine.add_material(UNLIT_VERT, UNLIT_FRAG, DrawType::Lines)?;
 
         let mesh = engine.add_mesh(&vertices, &indices)?;
 
         let object = Object {
             mesh,
-            transform: Matrix4::identity(),
+            transform,
             material,
         };
 
