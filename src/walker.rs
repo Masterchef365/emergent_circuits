@@ -72,11 +72,12 @@ impl Game {
                 let next = point_add(position, direction.vector());
                 if !self.board.contains(&next) {
                     walker.history.push(next);
+                    self.board.insert(next);
                     continue 'outer;
                 }
             }
 
-            return Status::Stuck(idx);
+            //return Status::Stuck(idx);
         }
 
         self.routes.extend(
