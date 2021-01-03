@@ -14,6 +14,7 @@ fn main() -> Result<()> {
         chip((7, 2), true, false), 
         chip((3, 18), false, true),
         chip((3, 3), true, true),
+        chip((3, 3), true, true),
     ];
     /*let connections = vec![
         ((0, 0), (1, 0)),
