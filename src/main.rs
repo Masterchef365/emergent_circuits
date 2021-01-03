@@ -8,10 +8,11 @@ use nalgebra::{Vector3, Vector4};
 
 pub type Mesh = (Vec<Vertex>, Vec<u16>);
 pub type Drawing = (Mesh, Matrix4<f32>);
+pub type Animation = Vec<Drawing>;
 
 fn main() -> Result<()> {
     let components = vec![
-        chip((7, 2), true, false), 
+        chip((7, 2), true, false),
         chip((3, 18), false, true),
         chip((3, 3), true, true),
         chip((3, 3), true, true),
@@ -25,9 +26,17 @@ fn main() -> Result<()> {
     let connections = dense(&components);
     let board_size = (30, 30);
     let circuit = (components, connections, board_size);
-    let layout = layout(&circuit).expect("Circuit layout problem");
-    let drawing = circuit_drawing(&circuit, &layout);
-    launch::<MyApp>(drawing)
+    let (placements, routes) = layout(&circuit).expect("Circuit layout problem");
+
+    let n_steps = 100;
+    let mut animation = Vec::with_capacity(n_steps);
+    for _ in 0..n_steps {
+        let layout = (placements.clone(), routes.clone());
+        let drawing = circuit_drawing(&circuit, &layout);
+        animation.push(drawing);
+    }
+
+    launch::<MyApp>(animation)
 }
 
 fn dense(components: &[Component]) -> Vec<Connection> {
@@ -38,12 +47,12 @@ fn dense(components: &[Component]) -> Vec<Connection> {
     };
 
     let mut cmp_iter = components.iter().enumerate().map(destinations);
-    
+
     let mut a = match cmp_iter.next() {
         Some(i) => i,
         None => return connections,
     };
-    
+
     let mut b = match cmp_iter.next() {
         Some(i) => i,
         None => return connections,
@@ -59,7 +68,7 @@ fn dense(components: &[Component]) -> Vec<Connection> {
                         Some(term) => term,
                         None => break,
                     }
-                },
+                }
                 None => break,
             },
         };
@@ -73,7 +82,7 @@ fn dense(components: &[Component]) -> Vec<Connection> {
                         Some(term) => term,
                         None => break,
                     }
-                },
+                }
                 None => break,
             },
         };
@@ -203,37 +212,48 @@ impl ShapeBuilder {
 }
 
 struct MyApp {
-    object: Object,
+    animation: Vec<Object>,
+    frame: usize,
 }
 
 impl App2D for MyApp {
     const TITLE: &'static str = "2D example app";
-    type Args = Drawing;
+    type Args = Animation;
 
-    fn new(
-        engine: &mut WinitBackend,
-        ((vertices, indices), transform): Self::Args,
-    ) -> Result<Self> {
+    fn new(engine: &mut WinitBackend, animation: Self::Args) -> Result<Self> {
         let material = engine.add_material(UNLIT_VERT, UNLIT_FRAG, DrawType::Lines)?;
+        let base_transform = Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.));
 
-        let mesh = engine.add_mesh(&vertices, &indices)?;
+        let animation = animation
+            .into_iter()
+            .map(|((vertices, indices), transform)| {
+                Ok(Object {
+                    mesh: engine.add_mesh(&vertices, &indices)?,
+                    transform: base_transform * transform,
+                    material,
+                })
+            })
+            .collect::<Result<_>>()?;
 
-        let object = Object {
-            mesh,
-            transform: Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.)) * transform,
-            material,
-        };
-
-        Ok(Self { object })
+        Ok(Self {
+            animation,
+            frame: 0,
+        })
     }
 
     fn event(&mut self, _event: &WindowEvent, _engine: &mut WinitBackend) -> Result<()> {
         Ok(())
     }
 
-    fn frame(&self) -> FramePacket {
+    fn frame(&mut self) -> FramePacket {
+        let rate = 30;
+        if self.frame >= self.animation.len() * rate {
+            self.frame = 0;
+        }
+        let frame = self.animation[self.frame / rate];
+
         FramePacket {
-            objects: vec![self.object],
+            objects: vec![frame],
         }
     }
 }

@@ -29,10 +29,14 @@ pub fn layout((components, connections, _size): &Circuit) -> Option<Layout> {
         let term = |(comp_idx, term_idx): (usize, usize)| {
             let (x, y) = components[comp_idx].0[term_idx];
             let (ox, oy) = placements[comp_idx];
-            dbg!((x + ox, y + oy))
+            (x + ox, y + oy)
         };
         routes.push(vec![term(src), term(dst)]);
     }
 
     Some((placements, routes))
+}
+
+pub fn point_add((x, y): Point, (dx, dy): Point) -> Point {
+    (x + dx, y + dy)
 }

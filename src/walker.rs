@@ -45,7 +45,7 @@ pub enum Status {
 }
 
 impl Game {
-    pub fn new((components, connections, _size): &Circuit) -> Self {
+    pub fn new((components, connections, _size): &Circuit, placements: &[Placement]) -> Self {
         let mut board = HashSet::new();
         let mut walkers = Vec::new();
         for (src, dst) in connections {
@@ -68,10 +68,8 @@ impl Game {
             let position = walker.position();
             let direction_prefs = evaluator(position, &self.board);
 
-            let (x, y) = position;
             for direction in &direction_prefs {
-                let (dx, dy) = direction.vector();
-                let next = (x + dx, y + dy);
+                let next = point_add(position, direction.vector());
                 if !self.board.contains(&next) {
                     walker.history.push(next);
                     continue 'outer;
