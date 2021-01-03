@@ -13,14 +13,30 @@ impl Walker {
             dest,
         }
     }
+
+    pub fn position(&self) -> Point {
+        *self.history.last().unwrap()
+    }
+
+    pub fn finished(&self) -> bool {
+        self.position() == self.dest
+    }
+
+    pub fn route(self) -> Route {
+        self.history
+    }
 }
+
+pub type Board = HashSet<Point>;
 
 pub struct Game {
-    pub board: HashSet<Point>,
+    pub board: Board,
     pub walkers: Vec<Walker>,
+    pub routes: Vec<Route>,
 }
 
-enum Status {
+#[derive(Debug, Copy, Clone)]
+pub enum Status {
     Running,
     /// The walker at this index became stuck
     Stuck(usize),
@@ -41,15 +57,69 @@ impl Game {
 
         Self {
             board,
-            walkers
+            walkers,
+            routes: Vec::new(),
         }
     }
 
-    pub fn step(&mut self, evaluator: impl FnMut(&[f32]) -> &[f32]) -> Status {
-        Status::Running
-    }
+    pub fn step(&mut self, mut evaluator: impl FnMut(Point, &Board) -> DirectionPrefs) -> Status {
+        'outer: for (idx, walker) in self.walkers.iter_mut().enumerate() {
+            let position = walker.position();
+            let direction_prefs = evaluator(position, &self.board);
 
-    pub fn routes(self) -> Vec<Route> {
-        self.walkers.into_iter().map(|w| w.history).collect()
+            let (x, y) = position;
+            for direction in &direction_prefs {
+                let (dx, dy) = direction.vector();
+                let next = (x + dx, y + dy);
+                if !self.board.contains(&next) {
+                    walker.history.push(next);
+                    continue 'outer;
+                }
+            }
+
+            return Status::Stuck(idx);
+        }
+
+        self.routes.extend(
+            self.walkers
+                .drain_filter(|w| w.finished())
+                .map(Walker::route),
+        );
+
+        if self.walkers.is_empty() {
+            Status::Finished
+        } else {
+            Status::Running
+        }
+    }
+}
+
+pub type DirectionPrefs = [Direction; 8];
+
+#[repr(usize)]
+#[derive(Copy, Clone)]
+pub enum Direction {
+    E = 0,
+    NE = 1,
+    N = 2,
+    NW = 3,
+    W = 4,
+    SW = 5,
+    S = 6,
+    SE = 7,
+}
+
+impl Direction {
+    pub fn vector(&self) -> (i32, i32) {
+        match self {
+            Direction::E => (1, 0),
+            Direction::NE => (1, 1),
+            Direction::N => (0, 1),
+            Direction::NW => (-1, 1),
+            Direction::W => (-1, 0),
+            Direction::SW => (-1, -1),
+            Direction::S => (0, -1),
+            Direction::SE => (1, -1),
+        }
     }
 }
