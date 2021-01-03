@@ -1,4 +1,5 @@
 use anyhow::Result;
+use connectgrid::walker::*;
 use connectgrid::*;
 use klystron::{
     runtime_2d::{event::WindowEvent, launch, App2D},
@@ -10,6 +11,19 @@ pub type Mesh = (Vec<Vertex>, Vec<u16>);
 pub type Drawing = (Mesh, Matrix4<f32>);
 pub type Animation = Vec<Drawing>;
 
+fn dummy_eval(pt: Point, board: &Board) -> DirectionPrefs {
+    [
+        Direction::E,
+        Direction::NE,
+        Direction::N,
+        Direction::NW,
+        Direction::W,
+        Direction::SW,
+        Direction::S,
+        Direction::SE,
+    ]
+}
+
 fn main() -> Result<()> {
     let components = vec![
         chip((7, 2), true, false),
@@ -17,23 +31,33 @@ fn main() -> Result<()> {
         chip((3, 3), true, true),
         chip((3, 3), true, true),
     ];
-    /*let connections = vec![
-        ((0, 0), (1, 0)),
-        ((0, 1), (1, 1)),
-        ((0, 2), (1, 2)),
-        ((0, 3), (1, 3)),
-    ];*/
     let connections = dense(&components);
     let board_size = (30, 30);
     let circuit = (components, connections, board_size);
+
     let (placements, routes) = layout(&circuit).expect("Circuit layout problem");
+
+    let mut game = Game::new(&circuit, &placements);
 
     let n_steps = 100;
     let mut animation = Vec::with_capacity(n_steps);
     for _ in 0..n_steps {
-        let layout = (placements.clone(), routes.clone());
+        let routes = game.unfinished_routes();
+        let layout = (placements.clone(), routes);
         let drawing = circuit_drawing(&circuit, &layout);
         animation.push(drawing);
+
+        match game.step(dummy_eval) {
+            Status::Running => (),
+            Status::Stuck(idx) => {
+                println!("Stuck at {}", idx);
+                break;
+            }
+            Status::Finished => {
+                println!("Finished!");
+                break;
+            }
+        }
     }
 
     launch::<MyApp>(animation)
@@ -246,14 +270,22 @@ impl App2D for MyApp {
     }
 
     fn frame(&mut self) -> FramePacket {
-        let rate = 30;
+        let rate = 20;
         if self.frame >= self.animation.len() * rate {
             self.frame = 0;
         }
         let frame = self.animation[self.frame / rate];
+        self.frame += 1;
 
         FramePacket {
             objects: vec![frame],
         }
     }
 }
+
+/*let connections = vec![
+    ((0, 0), (1, 0)),
+    ((0, 1), (1, 1)),
+    ((0, 2), (1, 2)),
+    ((0, 3), (1, 3)),
+];*/

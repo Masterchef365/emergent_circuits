@@ -1,5 +1,5 @@
 #![feature(drain_filter)]
-mod walker;
+pub mod walker;
 
 pub type Point = (i32, i32);
 pub type Component = (Vec<Point>, Size);

@@ -49,7 +49,7 @@ impl Game {
         let mut board = HashSet::new();
         let mut walkers = Vec::new();
         for (src, dst) in connections {
-            let deref_pt = |(c, t): (usize, usize)| components[c].0[t];
+            let deref_pt = |(c, t): (usize, usize)| point_add(components[c].0[t], placements[c]);
             let src = deref_pt(*src);
             let dst = deref_pt(*dst);
             board.insert(src);
