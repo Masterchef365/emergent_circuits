@@ -11,7 +11,7 @@ pub type Mesh = (Vec<Vertex>, Vec<u16>);
 pub type Drawing = (Mesh, Matrix4<f32>);
 pub type Animation = Vec<Drawing>;
 
-fn dummy_eval(pt: Point, board: &Board) -> DirectionPrefs {
+fn dummy_eval(pt: Point, dest: Point, board: &Board) -> DirectionPrefs {
     [
         Direction::E,
         Direction::NE,
@@ -21,6 +21,32 @@ fn dummy_eval(pt: Point, board: &Board) -> DirectionPrefs {
         Direction::SW,
         Direction::S,
         Direction::SE,
+    ]
+}
+
+fn better_eval(pt: Point, dest: Point, board: &Board) -> DirectionPrefs {
+    let diff = point_sub(pt, dest);
+    let dots = |dir: Direction| (point_dot(diff, dir.vector()), dir);
+    let mut directions = [
+        dots(Direction::E),
+        dots(Direction::NE),
+        dots(Direction::N),
+        dots(Direction::NW),
+        dots(Direction::W),
+        dots(Direction::SW),
+        dots(Direction::S),
+        dots(Direction::SE),
+    ];
+    directions.sort_by_key(|k| k.0);
+    [
+        directions[0].1,
+        directions[1].1,
+        directions[2].1,
+        directions[3].1,
+        directions[4].1,
+        directions[5].1,
+        directions[6].1,
+        directions[7].1,
     ]
 }
 
@@ -47,7 +73,7 @@ fn main() -> Result<()> {
         let drawing = circuit_drawing(&circuit, &layout);
         animation.push(drawing);
 
-        match game.step(dummy_eval) {
+        match game.step(better_eval) {
             Status::Running => (),
             Status::Stuck(idx) => {
                 println!("Stuck at {}", idx);
@@ -270,7 +296,7 @@ impl App2D for MyApp {
     }
 
     fn frame(&mut self) -> FramePacket {
-        let rate = 20;
+        let rate = 10;
         if self.frame >= self.animation.len() * rate {
             self.frame = 0;
         }

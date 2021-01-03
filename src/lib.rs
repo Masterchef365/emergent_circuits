@@ -40,3 +40,11 @@ pub fn layout((components, connections, _size): &Circuit) -> Option<Layout> {
 pub fn point_add((x, y): Point, (dx, dy): Point) -> Point {
     (x + dx, y + dy)
 }
+
+pub fn point_sub((ax, ay): Point, (bx, by): Point) -> Point {
+    (ax - bx, ay - by)
+}
+
+pub fn point_dot((ax, ay): Point, (bx, by): Point) -> i32 {
+    ax * bx + ay * by
+}

@@ -63,10 +63,10 @@ impl Game {
         }
     }
 
-    pub fn step(&mut self, mut evaluator: impl FnMut(Point, &Board) -> DirectionPrefs) -> Status {
+    pub fn step(&mut self, mut evaluator: impl FnMut(Point, Point, &Board) -> DirectionPrefs) -> Status {
         'outer: for (idx, walker) in self.walkers.iter_mut().enumerate() {
             let position = walker.position();
-            let direction_prefs = evaluator(position, &self.board);
+            let direction_prefs = evaluator(position, walker.dest, &self.board);
 
             for direction in &direction_prefs {
                 let next = point_add(position, direction.vector());
@@ -76,7 +76,7 @@ impl Game {
                     continue 'outer;
                 }
             }
-
+            // TODO: ENABLE ME
             //return Status::Stuck(idx);
         }
 
