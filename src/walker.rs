@@ -1,6 +1,7 @@
 use crate::*;
 use std::collections::HashSet;
 
+#[derive(Clone)]
 pub struct Walker {
     pub dest: Point,
     pub history: Vec<Point>,
@@ -44,13 +45,13 @@ pub enum Status {
 }
 
 impl Game {
-    pub fn new((components, connections, _size): Circuit) -> Self {
+    pub fn new((components, connections, _size): &Circuit) -> Self {
         let mut board = HashSet::new();
         let mut walkers = Vec::new();
         for (src, dst) in connections {
             let deref_pt = |(c, t): (usize, usize)| components[c].0[t];
-            let src = deref_pt(src);
-            let dst = deref_pt(dst);
+            let src = deref_pt(*src);
+            let dst = deref_pt(*dst);
             board.insert(src);
             walkers.push(Walker::new(src, dst));
         }
@@ -91,6 +92,12 @@ impl Game {
         } else {
             Status::Running
         }
+    }
+
+    pub fn unfinished_routes(&self) -> Vec<Route> {
+        let mut routes = self.routes.clone();
+        routes.extend(self.walkers.iter().map(|w| w.clone().route()));
+        routes
     }
 }
 
