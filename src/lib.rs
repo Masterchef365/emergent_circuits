@@ -1,3 +1,5 @@
+mod walker;
+
 pub type Point = (i32, i32);
 pub type Component = (Vec<Point>, Size);
 pub type Destination = (usize, usize);
@@ -15,10 +17,10 @@ pub type Layout = (Vec<Placement>, Vec<Route>);
 /// Returns None if no solution can be found 
 pub fn layout((components, connections, _size): &Circuit) -> Option<Layout> {
     let placements = vec![
-        (2, 2),
-        (9, 8),
-        (19, 18),
-        (19, 5),
+        (5, 5),
+        (12, 11),
+        (22, 21),
+        (22, 8),
     ];
     let mut routes = Vec::new();
 

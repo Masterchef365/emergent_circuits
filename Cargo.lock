@@ -147,6 +147,7 @@ dependencies = [
  "anyhow",
  "klystron",
  "nalgebra",
+ "rand",
 ]
 
 [[package]]
