@@ -15,8 +15,9 @@ pub type Layout = (Vec<Placement>, Vec<Route>);
 /// Returns None if no solution can be found 
 pub fn layout((components, connections, _size): &Circuit) -> Option<Layout> {
     let placements = vec![
-        (0, 0),
-        (4, 4),
+        (2, 2),
+        (9, 8),
+        (19, 18),
     ];
     let mut routes = Vec::new();
 

@@ -10,18 +10,77 @@ pub type Mesh = (Vec<Vertex>, Vec<u16>);
 pub type Drawing = (Mesh, Matrix4<f32>);
 
 fn main() -> Result<()> {
-    let components = vec![chip((7, 2), true, false), chip((8, 3), false, true)];
-    let connections = vec![
+    let components = vec![
+        chip((7, 2), true, false), 
+        chip((3, 18), false, true),
+        chip((3, 3), true, true),
+    ];
+    /*let connections = vec![
         ((0, 0), (1, 0)),
         ((0, 1), (1, 1)),
         ((0, 2), (1, 2)),
         ((0, 3), (1, 3)),
-    ];
+    ];*/
+    let connections = dense(&components);
     let board_size = (30, 30);
     let circuit = (components, connections, board_size);
     let layout = layout(&circuit).expect("Circuit layout problem");
     let drawing = circuit_drawing(&circuit, &layout);
     launch::<MyApp>(drawing)
+}
+
+fn dense(components: &[Component]) -> Vec<Connection> {
+    let mut connections = Vec::new();
+
+    let destinations = |(comp_idx, (terminals, _)): (usize, &Component)| {
+        (0..terminals.len()).map(move |term_idx| (comp_idx, term_idx))
+    };
+
+    let mut cmp_iter = components.iter().enumerate().map(destinations);
+    
+    let mut a = match cmp_iter.next() {
+        Some(i) => i,
+        None => return connections,
+    };
+    
+    let mut b = match cmp_iter.next() {
+        Some(i) => i,
+        None => return connections,
+    };
+
+    loop {
+        let src = match a.next() {
+            Some(term) => term,
+            None => match cmp_iter.next() {
+                Some(i) => {
+                    a = i;
+                    match a.next() {
+                        Some(term) => term,
+                        None => break,
+                    }
+                },
+                None => break,
+            },
+        };
+
+        let dst = match b.next() {
+            Some(term) => term,
+            None => match cmp_iter.next() {
+                Some(i) => {
+                    b = i;
+                    match b.next() {
+                        Some(term) => term,
+                        None => break,
+                    }
+                },
+                None => break,
+            },
+        };
+
+        connections.push((src, dst))
+    }
+
+    connections
 }
 
 fn chip(size: Size, vertical_terms: bool, horizontal_terms: bool) -> Component {
@@ -35,14 +94,14 @@ fn chip(size: Size, vertical_terms: bool, horizontal_terms: bool) -> Component {
     if vertical_terms {
         for x in 0..width {
             terminals.push((x, -1));
-            terminals.push((x, height + 1));
+            terminals.push((x, height));
         }
     }
 
     if horizontal_terms {
         for y in 0..height {
             terminals.push((-1, y));
-            terminals.push((width + 1, y));
+            terminals.push((width, y));
         }
     }
 
@@ -60,8 +119,8 @@ fn circuit_drawing(
     for ((_, (width, height)), (x, y)) in components.iter().zip(placements) {
         rectangle(
             &mut mesh,
-            *x as f32,
-            *y as f32,
+            *x as f32 - 0.5,
+            *y as f32 - 0.5,
             *width as f32,
             *height as f32,
             component_color,
@@ -94,8 +153,7 @@ fn circuit_drawing(
     );
 
     let scale = 1. / *width.max(height) as f32;
-    let scale = Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.))
-        * Matrix4::new_translation(&Vector3::new(-1., -1., 0.))
+    let scale = Matrix4::new_translation(&Vector3::new(-1., -1., 0.))
         * Matrix4::from_diagonal(&Vector4::new(2., 2., 1., 1.))
         * Matrix4::from_diagonal(&Vector4::new(scale, scale, 1., 1.));
 
@@ -104,7 +162,7 @@ fn circuit_drawing(
 }
 
 fn line(mesh: &mut ShapeBuilder, x1: f32, y1: f32, x2: f32, y2: f32, color: [f32; 3]) {
-    let base = mesh.indices.len() as u16;
+    let base = mesh.vertices.len() as u16;
     mesh.vertices
         .extend_from_slice(&[vert2d(x1, y1, color), vert2d(x2, y2, color)]);
     mesh.indices.extend_from_slice(&[base, base + 1]);
@@ -161,7 +219,7 @@ impl App2D for MyApp {
 
         let object = Object {
             mesh,
-            transform,
+            transform: Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.)) * transform,
             material,
         };
 
