@@ -10,5 +10,14 @@ layout(binding = 1) uniform Animation {
 layout(location = 0) out vec4 outColor;
 
 void main() {
-    outColor = vec4(vec3(anim > fragColor.x), 1.0);
+    bool shown = anim > fragColor.x;
+    vec3 color;
+
+    if (fragColor.x < 0.5) {
+        color = mix(vec3(1., 1., 0.), vec3(0., 1., 0.), fragColor.x / 0.5);
+    } else {
+        color = mix(vec3(0., 1., 0.), vec3(0., 1., 1.), (fragColor.x - 0.5) / 0.5);
+    }
+
+    outColor = vec4(float(shown) * color, 1.0);
 }

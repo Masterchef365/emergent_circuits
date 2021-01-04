@@ -22,6 +22,7 @@ pub fn layout((components, connections, _size): &Circuit) -> Option<Layout> {
         (12, 11),
         (22, 21),
         (22, 8),
+        (12, 18),
     ];
     let mut routes = Vec::new();
 

@@ -55,6 +55,7 @@ fn main() -> Result<()> {
         chip((3, 18), false, true),
         chip((3, 3), true, true),
         chip((3, 3), true, true),
+        chip((8, 5), false, true),
     ];
     let connections = dense(&components);
     /*
@@ -181,6 +182,7 @@ fn circuit_drawing(
     let mut mesh = ShapeBuilder::new();
 
     // Components
+    /*
     let component_color = [1., 0., 0.];
     for ((_, (width, height)), (x, y)) in components.iter().zip(placements) {
         rectangle(
@@ -192,6 +194,7 @@ fn circuit_drawing(
             component_color,
         );
     }
+    */
 
     // Routes
     //let route_color = [0.6133, 0.9333, 1.1244];
@@ -212,6 +215,7 @@ fn circuit_drawing(
     }
 
     // Border
+    /*
     rectangle(
         &mut mesh,
         0.,
@@ -220,6 +224,7 @@ fn circuit_drawing(
         *height as f32,
         [1., 1., 1.],
     );
+    */
 
     let scale = 1. / *width.max(height) as f32;
     let scale = Matrix4::new_translation(&Vector3::new(-1., -1., 0.))
@@ -312,9 +317,9 @@ impl App2D for MyApp {
     }
 
     fn frame(&mut self, engine: &mut WinitBackend) -> FramePacket {
-        self.anim += 0.001;
+        self.anim += 0.008 * (self.anim + 0.001).min(0.2);
 
-        if self.anim > 1. {
+        if self.anim > 1.2 {
             self.anim = 0.;
         }
 
