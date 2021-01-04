@@ -28,7 +28,42 @@ impl Walker {
     }
 }
 
-pub type Board = HashSet<Point>;
+#[derive(Default)]
+pub struct Board {
+    tiles: HashSet<Point>,
+    diagonals: HashSet<(Point, Point)>,
+}
+
+impl Board {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn try_insert(&mut self, src: Point, direction: Direction) -> bool {
+        let dest = point_add(src, direction.vector());
+        if self.tiles.contains(&dest) {
+            return false;
+        }
+
+        if direction.diagonal() {
+            if self.diagonals.contains(&(src, dest)) {
+                return false;
+            } else {
+                let ((ax, ay), (bx, by)) = (src, dest);
+                let first = (ax, by);
+                let second = (bx, ay);
+                self.diagonals.insert((first, second));
+                self.diagonals.insert((second, first));
+            }
+        }
+        self.tiles.insert(dest);
+        true
+    }
+
+    pub fn init_point(&mut self, src: Point) -> bool {
+        self.tiles.insert(src)
+    }
+}
 
 pub struct Game {
     pub board: Board,
@@ -46,13 +81,13 @@ pub enum Status {
 
 impl Game {
     pub fn new((components, connections, _size): &Circuit, placements: &[Placement]) -> Self {
-        let mut board = HashSet::new();
+        let mut board = Board::new();
         let mut walkers = Vec::new();
         for (src, dst) in connections {
             let deref_pt = |(c, t): (usize, usize)| point_add(components[c].0[t], placements[c]);
             let src = deref_pt(*src);
             let dst = deref_pt(*dst);
-            board.insert(src);
+            board.init_point(src);
             walkers.push(Walker::new(src, dst));
         }
 
@@ -69,15 +104,14 @@ impl Game {
             let direction_prefs = evaluator(position, walker.dest, &self.board);
 
             for direction in &direction_prefs {
-                let next = point_add(position, direction.vector());
-                if !self.board.contains(&next) {
+                if self.board.try_insert(position, *direction) {
+                    let next = point_add(position, direction.vector());
                     walker.history.push(next);
-                    self.board.insert(next);
                     continue 'outer;
                 }
             }
             // TODO: ENABLE ME
-            //return Status::Stuck(idx);
+            return Status::Stuck(idx);
         }
 
         self.routes.extend(
@@ -103,7 +137,7 @@ impl Game {
 pub type DirectionPrefs = [Direction; 8];
 
 #[repr(usize)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Direction {
     E = 0,
     NE = 1,
@@ -126,6 +160,13 @@ impl Direction {
             Direction::SW => (-1, -1),
             Direction::S => (0, -1),
             Direction::SE => (1, -1),
+        }
+    }
+    
+    pub fn diagonal(&self) -> bool {
+        match self {
+            Self::N | Self::S | Self::E | Self::W => false,
+            _ => true,
         }
     }
 }

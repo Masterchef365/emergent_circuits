@@ -57,7 +57,13 @@ fn main() -> Result<()> {
         chip((3, 3), true, true),
         chip((3, 3), true, true),
     ];
-    let connections = dense(&components);
+    //let connections = dense(&components);
+    let connections = vec![
+        ((0, 0), (1, 0)),
+        ((0, 1), (1, 9)),
+        ((0, 2), (1, 19)),
+        ((0, 3), (1, 23)),
+    ];
     let board_size = (30, 30);
     let circuit = (components, connections, board_size);
 
