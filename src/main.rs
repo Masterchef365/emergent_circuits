@@ -9,7 +9,6 @@ use nalgebra::{Vector3, Vector4};
 
 pub type Mesh = (Vec<Vertex>, Vec<u16>);
 pub type Drawing = (Mesh, Matrix4<f32>);
-pub type Animation = Vec<Drawing>;
 
 fn dummy_eval(pt: Point, dest: Point, board: &Board) -> DirectionPrefs {
     [
@@ -73,13 +72,8 @@ fn main() -> Result<()> {
 
     let mut game = Game::new(&circuit, &placements);
 
-    let n_steps = 100;
-    let mut animation = Vec::with_capacity(n_steps);
+    let n_steps = 400;
     for _ in 0..n_steps {
-        let routes = game.unfinished_routes();
-        let layout = (placements.clone(), routes);
-        let drawing = circuit_drawing(&circuit, &layout);
-        animation.push(drawing);
 
         match game.step(better_eval) {
             Status::Running => (),
@@ -94,7 +88,11 @@ fn main() -> Result<()> {
         }
     }
 
-    launch::<MyApp>(animation)
+    let routes = game.unfinished_routes();
+    let layout = (placements.clone(), routes);
+    let drawing = circuit_drawing(&circuit, &layout);
+
+    launch::<MyApp>(drawing)
 }
 
 fn dense(components: &[Component]) -> Vec<Connection> {
@@ -199,8 +197,8 @@ fn circuit_drawing(
     //let route_color = [0.6133, 0.9333, 1.1244];
     for route in routes {
         for (idx, pair) in route.windows(2).enumerate() {
-            let begin = idx as f32 / routes.len() as f32;
-            let end = (idx + 1) as f32 / routes.len() as f32;
+            let begin = idx as f32 / route.len() as f32;
+            let end = (idx + 1) as f32 / route.len() as f32;
             line2(
                 &mut mesh,
                 pair[0].0 as f32,
@@ -280,32 +278,32 @@ impl ShapeBuilder {
 }
 
 struct MyApp {
-    animation: Vec<Object>,
-    frame: usize,
+    frame: Object,
+    anim: f32,
 }
 
 impl App2D for MyApp {
     const TITLE: &'static str = "2D example app";
-    type Args = Animation;
+    type Args = Drawing;
 
-    fn new(engine: &mut WinitBackend, animation: Self::Args) -> Result<Self> {
-        let material = engine.add_material(UNLIT_VERT, UNLIT_FRAG, DrawType::Lines)?;
+    fn new(engine: &mut WinitBackend, drawing: Self::Args) -> Result<Self> {
+        let material = engine.add_material(
+            UNLIT_VERT,
+            &std::fs::read("./shaders/progressive.frag.spv")?, 
+            DrawType::Lines
+        )?;
         let base_transform = Matrix4::from_diagonal(&Vector4::new(0.5, 0.5, 1., 1.));
 
-        let animation = animation
-            .into_iter()
-            .map(|((vertices, indices), transform)| {
-                Ok(Object {
-                    mesh: engine.add_mesh(&vertices, &indices)?,
-                    transform: base_transform * transform,
-                    material,
-                })
-            })
-            .collect::<Result<_>>()?;
+        let ((vertices, indices), transform) = drawing;
+        let frame = Object {
+            mesh: engine.add_mesh(&vertices, &indices)?,
+            transform: base_transform * transform,
+            material,
+        };
 
         Ok(Self {
-            animation,
-            frame: 0,
+            frame,
+            anim: 0.,
         })
     }
 
@@ -313,16 +311,17 @@ impl App2D for MyApp {
         Ok(())
     }
 
-    fn frame(&mut self) -> FramePacket {
-        let rate = 10;
-        if self.frame >= self.animation.len() * rate {
-            self.frame = 0;
+    fn frame(&mut self, engine: &mut WinitBackend) -> FramePacket {
+        self.anim += 0.001;
+
+        if self.anim > 1. {
+            self.anim = 0.;
         }
-        let frame = self.animation[self.frame / rate];
-        self.frame += 1;
+
+        engine.update_time_value(self.anim);
 
         FramePacket {
-            objects: vec![frame],
+            objects: vec![self.frame],
         }
     }
 }
