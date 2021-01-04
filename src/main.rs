@@ -57,13 +57,15 @@ fn main() -> Result<()> {
         chip((3, 3), true, true),
         chip((3, 3), true, true),
     ];
-    //let connections = dense(&components);
+    let connections = dense(&components);
+    /*
     let connections = vec![
         ((0, 0), (1, 0)),
         ((0, 1), (1, 9)),
         ((0, 2), (1, 19)),
         ((0, 3), (1, 23)),
     ];
+    */
     let board_size = (30, 30);
     let circuit = (components, connections, board_size);
 
@@ -194,16 +196,19 @@ fn circuit_drawing(
     }
 
     // Routes
-    let route_color = [0.6133, 0.9333, 1.1244];
+    //let route_color = [0.6133, 0.9333, 1.1244];
     for route in routes {
-        for pair in route.windows(2) {
-            line(
+        for (idx, pair) in route.windows(2).enumerate() {
+            let begin = idx as f32 / routes.len() as f32;
+            let end = (idx + 1) as f32 / routes.len() as f32;
+            line2(
                 &mut mesh,
                 pair[0].0 as f32,
                 pair[0].1 as f32,
                 pair[1].0 as f32,
                 pair[1].1 as f32,
-                route_color,
+                [begin, begin, begin],
+                [end, end, end],
             );
         }
     }
@@ -231,6 +236,13 @@ fn line(mesh: &mut ShapeBuilder, x1: f32, y1: f32, x2: f32, y2: f32, color: [f32
     let base = mesh.vertices.len() as u16;
     mesh.vertices
         .extend_from_slice(&[vert2d(x1, y1, color), vert2d(x2, y2, color)]);
+    mesh.indices.extend_from_slice(&[base, base + 1]);
+}
+
+fn line2(mesh: &mut ShapeBuilder, x1: f32, y1: f32, x2: f32, y2: f32, color_begin: [f32; 3], color_end: [f32; 3]) {
+    let base = mesh.vertices.len() as u16;
+    mesh.vertices
+        .extend_from_slice(&[vert2d(x1, y1, color_begin), vert2d(x2, y2, color_end)]);
     mesh.indices.extend_from_slice(&[base, base + 1]);
 }
 

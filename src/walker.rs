@@ -111,7 +111,7 @@ impl Game {
                 }
             }
             // TODO: ENABLE ME
-            return Status::Stuck(idx);
+            //return Status::Stuck(idx);
         }
 
         self.routes.extend(
